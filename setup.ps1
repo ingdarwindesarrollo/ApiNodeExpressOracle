@@ -35,7 +35,7 @@ $dockerDisponible = $null -ne (Get-Command docker -ErrorAction SilentlyContinue)
 if ($dockerDisponible) {
     Ok "Docker disponible"
 } else {
-    Warn "Docker no encontrado — se omitirá la creación del contenedor Oracle"
+    Warn "Docker no encontrado - se omitira la creacion del contenedor Oracle"
     $SkipDocker = $true
 }
 
@@ -99,23 +99,23 @@ Ok "src/config, controllers, services, routes, middlewares, utils, logs"
 Title "Creando archivos del proyecto"
 
 # .env
-@"
+@'
 DB_USER=system
 DB_PASS=123456
 DB_CONN=localhost/XEPDB1
-"@ | Set-Content ".env" -Encoding UTF8
+'@ | Set-Content ".env" -Encoding UTF8
 Ok ".env"
 
 # .gitignore
-@"
+@'
 node_modules/
 .env
 logs/
-"@ | Set-Content ".gitignore" -Encoding UTF8
+'@ | Set-Content ".gitignore" -Encoding UTF8
 Ok ".gitignore"
 
 # init-db.js
-@"
+@'
 const oracledb = require('oracledb');
 
 async function init() {
@@ -152,11 +152,11 @@ async function init() {
 }
 
 init();
-"@ | Set-Content "init-db.js" -Encoding UTF8
+'@ | Set-Content "init-db.js" -Encoding UTF8
 Ok "init-db.js"
 
 # src/config/db.js
-@"
+@'
 const oracledb = require('oracledb');
 require('dotenv').config();
 
@@ -180,11 +180,11 @@ async function getConnection() {
 }
 
 module.exports = { initDB, getConnection };
-"@ | Set-Content "src/config/db.js" -Encoding UTF8
+'@ | Set-Content "src/config/db.js" -Encoding UTF8
 Ok "src/config/db.js"
 
 # src/utils/logger.js
-@"
+@'
 const { createLogger, format, transports } = require('winston');
 
 const logger = createLogger({
@@ -203,11 +203,11 @@ const logger = createLogger({
 });
 
 module.exports = logger;
-"@ | Set-Content "src/utils/logger.js" -Encoding UTF8
+'@ | Set-Content "src/utils/logger.js" -Encoding UTF8
 Ok "src/utils/logger.js"
 
 # src/middlewares/user.validator.js
-@"
+@'
 const { body } = require('express-validator');
 
 exports.createUserValidator = [
@@ -218,11 +218,11 @@ exports.createUserValidator = [
     body('email')
         .isEmail().withMessage('Email invalido')
 ];
-"@ | Set-Content "src/middlewares/user.validator.js" -Encoding UTF8
+'@ | Set-Content "src/middlewares/user.validator.js" -Encoding UTF8
 Ok "src/middlewares/user.validator.js"
 
 # src/middlewares/validate.js
-@"
+@'
 const { validationResult } = require('express-validator');
 
 function validate(req, res, next) {
@@ -239,11 +239,11 @@ function validate(req, res, next) {
 }
 
 module.exports = validate;
-"@ | Set-Content "src/middlewares/validate.js" -Encoding UTF8
+'@ | Set-Content "src/middlewares/validate.js" -Encoding UTF8
 Ok "src/middlewares/validate.js"
 
 # src/middlewares/error.middleware.js
-@"
+@'
 const logger = require('../utils/logger');
 
 function errorHandler(err, req, res, next) {
@@ -272,11 +272,11 @@ function errorHandler(err, req, res, next) {
 }
 
 module.exports = errorHandler;
-"@ | Set-Content "src/middlewares/error.middleware.js" -Encoding UTF8
+'@ | Set-Content "src/middlewares/error.middleware.js" -Encoding UTF8
 Ok "src/middlewares/error.middleware.js"
 
 # src/services/user.service.js
-@"
+@'
 const { getConnection } = require('../config/db');
 
 async function getAll() {
@@ -327,11 +327,11 @@ async function remove(id) {
 }
 
 module.exports = { getAll, getById, create, update, remove };
-"@ | Set-Content "src/services/user.service.js" -Encoding UTF8
+'@ | Set-Content "src/services/user.service.js" -Encoding UTF8
 Ok "src/services/user.service.js"
 
 # src/controllers/user.controllers.js
-@"
+@'
 const service = require('../services/user.service');
 
 exports.getAll = async (req, res, next) => {
@@ -372,11 +372,11 @@ exports.delete = async (req, res, next) => {
         res.json({ message: 'Eliminado' });
     } catch (err) { next(err); }
 };
-"@ | Set-Content "src/controllers/user.controllers.js" -Encoding UTF8
+'@ | Set-Content "src/controllers/user.controllers.js" -Encoding UTF8
 Ok "src/controllers/user.controllers.js"
 
 # src/routes/user.routes.js
-@"
+@'
 const router = require('express').Router();
 const c = require('../controllers/user.controllers');
 const validate = require('../middlewares/validate');
@@ -396,11 +396,11 @@ router.put('/:id',    c.update);
 router.delete('/:id', c.delete);
 
 module.exports = router;
-"@ | Set-Content "src/routes/user.routes.js" -Encoding UTF8
+'@ | Set-Content "src/routes/user.routes.js" -Encoding UTF8
 Ok "src/routes/user.routes.js"
 
 # src/app.js
-@"
+@'
 const express = require('express');
 const cors    = require('cors');
 const helmet  = require('helmet');
@@ -424,7 +424,7 @@ app.listen(3000, () => {
 });
 
 app.use(errorHandler);
-"@ | Set-Content "src/app.js" -Encoding UTF8
+'@ | Set-Content "src/app.js" -Encoding UTF8
 Ok "src/app.js"
 
 # ── Docker: Oracle XE ─────────────────────────────────────────
@@ -457,16 +457,16 @@ Title "Proyecto listo"
 Write-Host ""
 Write-Host "  Estructura creada:" -ForegroundColor White
 Write-Host "    $NombreProyecto/"
-Write-Host "    ├── src/app.js"
-Write-Host "    ├── src/config/db.js"
-Write-Host "    ├── src/routes/user.routes.js"
-Write-Host "    ├── src/controllers/user.controllers.js"
-Write-Host "    ├── src/services/user.service.js"
-Write-Host "    ├── src/middlewares/{error.middleware, validate, user.validator}.js"
-Write-Host "    ├── src/utils/logger.js"
-Write-Host "    ├── init-db.js"
-Write-Host "    ├── .env"
-Write-Host "    └── .gitignore"
+Write-Host "    +-- src/app.js"
+Write-Host "    +-- src/config/db.js"
+Write-Host "    +-- src/routes/user.routes.js"
+Write-Host "    +-- src/controllers/user.controllers.js"
+Write-Host "    +-- src/services/user.service.js"
+Write-Host "    +-- src/middlewares/{error.middleware, validate, user.validator}.js"
+Write-Host "    +-- src/utils/logger.js"
+Write-Host "    +-- init-db.js"
+Write-Host "    +-- .env"
+Write-Host "    \-- .gitignore"
 Write-Host ""
 Write-Host "  Proximos pasos:" -ForegroundColor White
 if (-not $SkipDocker) {
