@@ -33,8 +33,140 @@ Un backend (servidor) que expone una API REST para gestionar **usuarios** (crear
 ## Requisitos previos instalados
 
 - [Node.js](https://nodejs.org) v18 o superior
-- Oracle Database XE (Express Edition) corriendo localmente
+- [Docker Desktop](https://www.docker.com/products/docker-desktop) instalado y corriendo
 - Un cliente REST para probar: [Postman](https://www.postman.com) o [Thunder Client](https://www.thunderclient.com)
+
+---
+
+## Paso 0 — Levantar Oracle XE con Docker
+
+Antes de escribir una sola línea de código del proyecto, necesitamos tener la base de datos disponible. En lugar de instalar Oracle manualmente (un proceso largo y complejo), usamos **Docker** para tenerla corriendo en segundos.
+
+### ¿Qué es Docker?
+
+Docker es una herramienta que permite ejecutar aplicaciones dentro de **contenedores**: entornos aislados, ligeros y reproducibles. Un contenedor empaqueta el programa y todo lo que necesita para funcionar (sistema operativo mínimo, librerías, configuración), de modo que funciona igual en cualquier máquina.
+
+| Concepto Docker | Analogía |
+|---|---|
+| **Imagen** | Receta de cocina (plantilla de solo lectura) |
+| **Contenedor** | El plato cocinado (instancia en ejecución de una imagen) |
+| **Docker Hub** | Repositorio público de imágenes listas para usar |
+
+### ¿Por qué usar Docker para Oracle en lugar de instalarlo directamente?
+
+| Instalación manual | Con Docker |
+|---|---|
+| Requiere 4–8 GB de espacio en el sistema | La imagen pesa ~1 GB |
+| El instalador puede tardar 30–60 minutos | Lista en 2–3 minutos |
+| Difícil de desinstalar limpiamente | Se borra con `docker rm oracle-xe` |
+| Configura el sistema operativo anfitrión | Corre completamente aislado |
+| Solo funciona en ciertos sistemas operativos | Funciona igual en Windows, Mac y Linux |
+
+### 0.1 Ejecutar el contenedor de Oracle XE
+
+```bash
+docker run -d \
+  -p 1521:1521 \
+  -e ORACLE_PASSWORD=123456 \
+  --name oracle-xe \
+  gvenzl/oracle-xe
+```
+
+En Windows (una sola línea):
+
+```bash
+docker run -d -p 1521:1521 -e ORACLE_PASSWORD=123456 --name oracle-xe gvenzl/oracle-xe
+```
+
+**Desglose del comando, parte por parte:**
+
+| Fragmento | ¿Qué hace? |
+|---|---|
+| `docker run` | Crea y arranca un nuevo contenedor |
+| `-d` | Modo **detached**: corre en segundo plano, no bloquea la terminal |
+| `-p 1521:1521` | **Port mapping**: expone el puerto 1521 del contenedor en el puerto 1521 de tu máquina. Formato: `puerto_local:puerto_contenedor` |
+| `-e ORACLE_PASSWORD=123456` | Pasa una **variable de entorno** al contenedor. Oracle XE usará `123456` como contraseña del usuario `system` |
+| `--name oracle-xe` | Asigna el nombre `oracle-xe` al contenedor para poder referenciarlo fácilmente |
+| `gvenzl/oracle-xe` | Nombre de la **imagen** en Docker Hub: usuario `gvenzl`, imagen `oracle-xe`. Docker la descarga automáticamente si no la tienes |
+
+**¿Por qué el puerto 1521?**  
+Es el puerto estándar de Oracle Database (equivalente al `3306` de MySQL o `5432` de PostgreSQL). El driver `oracledb` de Node.js se conecta a este puerto por defecto.
+
+### 0.2 Verificar que el contenedor está corriendo
+
+```bash
+docker ps
+```
+
+Deberías ver algo como:
+
+```
+CONTAINER ID   IMAGE              STATUS          PORTS                    NAMES
+a1b2c3d4e5f6   gvenzl/oracle-xe   Up 2 minutes    0.0.0.0:1521->1521/tcp   oracle-xe
+```
+
+### 0.3 Ver los logs del contenedor (esperar que arranque)
+
+Oracle XE tarda entre 60 y 90 segundos en inicializarse por primera vez. Puedes seguir los logs en tiempo real:
+
+```bash
+docker logs -f oracle-xe
+```
+
+Cuando veas la línea:
+
+```
+DATABASE IS READY TO USE!
+```
+
+la base de datos ya acepta conexiones. Presiona `Ctrl + C` para salir del seguimiento de logs.
+
+### 0.4 Comandos útiles para gestionar el contenedor
+
+```bash
+# Detener el contenedor (la BD queda apagada, los datos se conservan)
+docker stop oracle-xe
+
+# Volver a arrancar el contenedor (sin perder datos)
+docker start oracle-xe
+
+# Ver los logs
+docker logs oracle-xe
+
+# Eliminar el contenedor completamente
+docker rm -f oracle-xe
+
+# Entrar al contenedor con una terminal interactiva
+docker exec -it oracle-xe bash
+```
+
+**¿Cuándo se pierden los datos?**  
+Al hacer `docker rm`, el contenedor y su contenido se borran. Para persistir los datos entre recreaciones del contenedor, se usa un **volumen Docker** (tema avanzado):
+
+```bash
+docker run -d -p 1521:1521 -e ORACLE_PASSWORD=123456 \
+  -v oracle-data:/opt/oracle/oradata \
+  --name oracle-xe gvenzl/oracle-xe
+```
+
+Con `-v oracle-data:/opt/oracle/oradata`, los archivos de la BD se guardan en un volumen gestionado por Docker y sobreviven aunque elimines el contenedor.
+
+### 0.5 Cadena de conexión
+
+Una vez que el contenedor está listo, la cadena de conexión para Node.js es:
+
+```
+localhost/XEPDB1
+```
+
+- `localhost` → Oracle corre en tu propia máquina (gracias al `-p 1521:1521`)
+- `XEPDB1` → nombre del **Pluggable Database** (PDB) que crea Oracle XE por defecto
+
+Esta es la misma cadena que se usa en el archivo `.env`:
+
+```
+DB_CONN=localhost/XEPDB1
+```
 
 ---
 
@@ -784,6 +916,67 @@ Servidor en 3000
 | `ORA-01017: invalid username/password` | Credenciales incorrectas en `.env` | Verifica `DB_USER` y `DB_PASS` |
 | `Cannot read properties of undefined (req.body)` | Falta `app.use(express.json())` | Asegúrate de que ese middleware esté antes de las rutas |
 | Cambios en código no se reflejan | Servidor no se reinició | Usa `npm run dev` con nodemon |
+
+---
+
+## Bonus — Script de instalación automática
+
+Todo lo que se explica en esta guía está automatizado en el archivo `setup.ps1`. Con un solo comando crea la carpeta del proyecto, instala dependencias, genera todos los archivos y levanta Oracle XE en Docker.
+
+### ¿Cómo usarlo?
+
+**Opción 1 — Proyecto con nombre por defecto (`msp-backend`):**
+```powershell
+.\setup.ps1
+```
+
+**Opción 2 — Con un nombre personalizado:**
+```powershell
+.\setup.ps1 -NombreProyecto "mi-api-usuarios"
+```
+
+**Opción 3 — Sin Docker (si ya tienes Oracle corriendo):**
+```powershell
+.\setup.ps1 -SkipDocker
+```
+
+### Primera vez que ejecutas scripts en PowerShell
+
+Windows bloquea por seguridad la ejecución de scripts `.ps1` por defecto. Si ves el error `"no se puede cargar el archivo ... no está firmado digitalmente"`, ejecuta primero:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+**¿Qué significa?**  
+- `RemoteSigned` permite ejecutar scripts locales sin firmar, pero exige firma digital a los descargados de Internet.
+- `-Scope CurrentUser` aplica el cambio solo a tu usuario, sin afectar al resto del sistema.
+
+### ¿Qué hace el script paso a paso?
+
+| Fase | Qué hace |
+|---|---|
+| **Verificación** | Comprueba que `node`, `npm` y `docker` estén instalados |
+| **Carpeta** | Crea el directorio del proyecto y entra en él |
+| **npm init** | Ejecuta `npm init -y` y configura `scripts` y `"type": "commonjs"` en `package.json` |
+| **Dependencias** | Instala todos los paquetes de producción y `nodemon` como dev |
+| **Estructura** | Crea todas las subcarpetas (`config`, `controllers`, `services`, etc.) |
+| **Archivos** | Genera cada archivo `.js`, `.env` y `.gitignore` con su contenido completo |
+| **Docker** | Comprueba si el contenedor ya existe; si no, lanza `docker run` para Oracle XE |
+| **Resumen** | Muestra la estructura creada y los próximos pasos a seguir |
+
+### Después de ejecutar el script
+
+```powershell
+# 1. Seguir los logs de Oracle hasta ver "DATABASE IS READY TO USE!"
+docker logs -f oracle-xe
+
+# 2. Crear la tabla (solo una vez)
+node init-db.js
+
+# 3. Arrancar el servidor
+npm run dev
+```
 
 ---
 
