@@ -919,6 +919,67 @@ Servidor en 3000
 
 ---
 
+## Bonus — Script de instalación automática
+
+Todo lo que se explica en esta guía está automatizado en el archivo `setup.ps1`. Con un solo comando crea la carpeta del proyecto, instala dependencias, genera todos los archivos y levanta Oracle XE en Docker.
+
+### ¿Cómo usarlo?
+
+**Opción 1 — Proyecto con nombre por defecto (`msp-backend`):**
+```powershell
+.\setup.ps1
+```
+
+**Opción 2 — Con un nombre personalizado:**
+```powershell
+.\setup.ps1 -NombreProyecto "mi-api-usuarios"
+```
+
+**Opción 3 — Sin Docker (si ya tienes Oracle corriendo):**
+```powershell
+.\setup.ps1 -SkipDocker
+```
+
+### Primera vez que ejecutas scripts en PowerShell
+
+Windows bloquea por seguridad la ejecución de scripts `.ps1` por defecto. Si ves el error `"no se puede cargar el archivo ... no está firmado digitalmente"`, ejecuta primero:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+**¿Qué significa?**  
+- `RemoteSigned` permite ejecutar scripts locales sin firmar, pero exige firma digital a los descargados de Internet.
+- `-Scope CurrentUser` aplica el cambio solo a tu usuario, sin afectar al resto del sistema.
+
+### ¿Qué hace el script paso a paso?
+
+| Fase | Qué hace |
+|---|---|
+| **Verificación** | Comprueba que `node`, `npm` y `docker` estén instalados |
+| **Carpeta** | Crea el directorio del proyecto y entra en él |
+| **npm init** | Ejecuta `npm init -y` y configura `scripts` y `"type": "commonjs"` en `package.json` |
+| **Dependencias** | Instala todos los paquetes de producción y `nodemon` como dev |
+| **Estructura** | Crea todas las subcarpetas (`config`, `controllers`, `services`, etc.) |
+| **Archivos** | Genera cada archivo `.js`, `.env` y `.gitignore` con su contenido completo |
+| **Docker** | Comprueba si el contenedor ya existe; si no, lanza `docker run` para Oracle XE |
+| **Resumen** | Muestra la estructura creada y los próximos pasos a seguir |
+
+### Después de ejecutar el script
+
+```powershell
+# 1. Seguir los logs de Oracle hasta ver "DATABASE IS READY TO USE!"
+docker logs -f oracle-xe
+
+# 2. Crear la tabla (solo una vez)
+node init-db.js
+
+# 3. Arrancar el servidor
+npm run dev
+```
+
+---
+
 ## Buenas prácticas aplicadas en este proyecto
 
 - **Variables de entorno** para secretos (nunca hardcodear contraseñas).
